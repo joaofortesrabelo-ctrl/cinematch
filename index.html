@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CineMatch — recomendações rápidas de filmes e séries de acordo com seu humor, tempo e gêneros favoritos.">
+  <meta name="theme-color" content="#6d28d9">
+  <title>CineMatch — Recomendador de Filmes e Séries</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+
+  <!-- Aplica o tema salvo ANTES de desenhar a página (evita "piscar" claro→escuro) -->
+  <script>
+    (function () {
+      var tema = null;
+      try { tema = JSON.parse(localStorage.getItem('cinematch:tema')); } catch (e) {}
+      if (!tema) tema = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', tema);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Aviso que só aparece se o style.css não carregar (ex.: index.html aberto de dentro do .zip). O style.css esconde este bloco. -->
+  <div class="aviso-arquivos" role="alert" style="margin:16px;padding:16px 20px;border:3px solid #b45309;border-radius:12px;background:#fffbeb;color:#1f2937;font:16px/1.5 system-ui,sans-serif">
+    <strong style="font-size:18px">⚠️ Os arquivos do CineMatch não foram encontrados.</strong><br>
+    Provavelmente o <code>index.html</code> foi aberto de dentro do arquivo .zip. Para funcionar:
+    <ol style="margin:8px 0 0">
+      <li>Feche esta página.</li>
+      <li>Clique com o botão direito no <b>CineMatch.zip</b> e escolha <b>Extrair tudo…</b></li>
+      <li>Abra a pasta extraída <b>cinematch</b> e dê dois cliques no <b>index.html</b>.</li>
+    </ol>
+  </div>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- ================= CABEÇALHO ================= -->
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="#recomendar" aria-label="CineMatch — página inicial">
+        <span class="brand__logo" aria-hidden="true">🎬</span>
+        <span class="brand__name">Cine<strong>Match</strong></span>
+      </a>
+
+      <nav class="nav" aria-label="Navegação principal">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#recomendar" data-view="recomendar"><span aria-hidden="true">✨</span><span>Recomendar</span></a></li>
+          <li><a class="nav__link" href="#explorar" data-view="explorar"><span aria-hidden="true">🔍</span><span>Explorar</span></a></li>
+          <li><a class="nav__link" href="#favoritos" data-view="favoritos"><span aria-hidden="true">❤️</span><span>Favoritos</span><span class="badge" id="badge-favoritos" hidden>0</span></a></li>
+          <li><a class="nav__link" href="#historico" data-view="historico"><span aria-hidden="true">🕘</span><span>Histórico</span></a></li>
+          <li><a class="nav__link" href="#estatisticas" data-view="estatisticas"><span aria-hidden="true">📊</span><span>Estatísticas</span></a></li>
+        </ul>
+      </nav>
+
+      <div class="topbar__actions">
+        <button type="button" class="btn-icon btn-perfil" id="btn-perfil" aria-haspopup="dialog" title="Trocar de perfil">
+          <span class="btn-perfil__avatar" id="perfil-avatar" aria-hidden="true">🍿</span>
+          <span class="btn-perfil__nome" id="perfil-nome">Eu</span>
+        </button>
+        <button type="button" class="btn-icon" id="btn-ajuda" aria-haspopup="dialog" aria-label="Ajuda e atalhos" title="Ajuda (?)"><span class="btn-ajuda__q" aria-hidden="true">?</span></button>
+        <button type="button" class="btn-icon btn-tema" id="btn-tema" aria-pressed="false" title="Alternar tema (T)">
+          <span class="btn-tema__icone" aria-hidden="true">🌙</span>
+          <span class="btn-tema__texto" lang="en">Dark Mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo" tabindex="-1">
+
+    <!-- ================= RECOMENDAR ================= -->
+    <section class="view" id="view-recomendar" aria-labelledby="titulo-recomendar">
+      <div class="hero">
+        <p class="hero__eyebrow">Chega de ficar 30 minutos escolhendo 🍿</p>
+        <h1 id="titulo-recomendar" class="hero__title">O que vamos assistir <span class="grad">hoje</span>?</h1>
+        <p class="hero__text">Conte como você está e quanto tempo tem. O CineMatch escolhe 3 opções sob medida para você.</p>
+      </div>
+
+      <nav class="modo" aria-label="Para quem é a recomendação">
+        <a class="modo__opt" href="#recomendar" aria-current="page"><span aria-hidden="true">👤</span> Só eu</a>
+        <a class="modo__opt" href="#juntos"><span aria-hidden="true">👥</span> Assistir junto</a>
+      </nav>
+
+      <ol class="steps" aria-label="Etapas">
+        <li class="steps__item is-active" id="step-1"><span>1</span> Preferências</li>
+        <li class="steps__item" id="step-2"><span>2</span> Recomendações</li>
+        <li class="steps__item" id="step-3"><span>3</span> Favoritar</li>
+      </ol>
+
+      <form class="card form-prefs" id="form-prefs" novalidate autocomplete="off" aria-describedby="form-dica">
+        <p class="form-prefs__hint" id="form-dica">Campos com <span class="req" aria-hidden="true">*</span> são obrigatórios. Suas últimas escolhas ficam salvas.</p>
+
+        <fieldset class="field field--full" id="campo-tipo">
+          <legend>O que você quer ver?</legend>
+          <div class="segmented" role="radiogroup" aria-label="Tipo de conteúdo">
+            <label class="segmented__opt"><input type="radio" name="tipo" value="todos" checked><span>🎞️ Tanto faz</span></label>
+            <label class="segmented__opt"><input type="radio" name="tipo" value="filme"><span>🎬 Filme</span></label>
+            <label class="segmented__opt"><input type="radio" name="tipo" value="serie"><span>📺 Série</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field field--full" id="campo-genero" aria-describedby="erro-genero">
+          <legend>Gêneros favoritos <span class="req" aria-hidden="true">*</span> <small>(escolha um ou mais)</small></legend>
+          <div class="chips" id="lista-generos"><!-- preenchido pelo app.js --></div>
+          <p class="erro" id="erro-genero" role="alert" hidden></p>
+        </fieldset>
+
+        <fieldset class="field field--full" id="campo-humor" aria-describedby="erro-humor">
+          <legend>Como você está se sentindo? <span class="req" aria-hidden="true">*</span></legend>
+          <div class="moods" id="lista-humores"><!-- preenchido pelo app.js --></div>
+          <p class="erro" id="erro-humor" role="alert" hidden></p>
+        </fieldset>
+
+        <fieldset class="field" id="campo-tempo" aria-describedby="erro-tempo">
+          <legend>Tempo disponível <span class="req" aria-hidden="true">*</span></legend>
+          <div class="chips chips--compact" id="lista-tempos"><!-- preenchido pelo app.js --></div>
+          <p class="erro" id="erro-tempo" role="alert" hidden></p>
+        </fieldset>
+
+        <div class="field" id="campo-faixa">
+          <label for="faixa" class="field__label">Faixa etária <span class="req" aria-hidden="true">*</span></label>
+          <select id="faixa" name="faixa" class="select" aria-describedby="erro-faixa faixa-dica" required>
+            <option value="">Selecione…</option>
+          </select>
+          <p class="field__hint" id="faixa-dica">Usamos a classificação indicativa brasileira.</p>
+          <p class="erro" id="erro-faixa" role="alert" hidden></p>
+        </div>
+
+        <div class="form-prefs__actions field--full">
+          <button type="submit" class="btn btn--primary btn--lg" id="btn-recomendar">
+            <span class="btn__icon" aria-hidden="true">✨</span> Recomendar
+          </button>
+          <button type="button" class="btn btn--ghost" id="btn-surpresa" title="Escolhe preferências aleatórias">🎲 Surpreenda-me</button>
+          <button type="reset" class="btn btn--text" id="btn-limpar">Limpar escolhas</button>
+        </div>
+      </form>
+
+      <section class="resultados" id="resultados" aria-labelledby="titulo-resultados" hidden>
+        <div class="section-head">
+          <div>
+            <h2 id="titulo-resultados">Recomendação de 3 sugestões</h2>
+            <p class="section-head__sub" id="resumo-prefs"></p>
+          </div>
+          <button type="button" class="btn btn--ghost" id="btn-outras">🔄 Outras sugestões</button>
+        </div>
+        <div class="grid-cards" id="lista-resultados" aria-live="polite" aria-busy="false"></div>
+      </section>
+    </section>
+
+    <!-- ================= ASSISTIR JUNTO ================= -->
+    <section class="view" id="view-juntos" aria-labelledby="titulo-juntos" hidden>
+      <div class="hero">
+        <p class="hero__eyebrow">Fim da briga pelo controle remoto 🛋️</p>
+        <h1 id="titulo-juntos" class="hero__title">Vamos assistir <span class="grad">juntos</span>?</h1>
+        <p class="hero__text">Cada um conta do que gosta. O CineMatch procura o que agrada os dois e mostra quanto cada um vai curtir.</p>
+      </div>
+
+      <nav class="modo" aria-label="Para quem é a recomendação">
+        <a class="modo__opt" href="#recomendar"><span aria-hidden="true">👤</span> Só eu</a>
+        <a class="modo__opt" href="#juntos" aria-current="page"><span aria-hidden="true">👥</span> Assistir junto</a>
+      </nav>
+
+      <form class="card form-juntos" id="form-juntos" novalidate autocomplete="off" aria-describedby="juntos-dica">
+        <p class="form-prefs__hint" id="juntos-dica">Campos com <span class="req" aria-hidden="true">*</span> são obrigatórios. Na faixa etária, vale a de quem é mais novo.</p>
+
+        <fieldset class="juntos-comum" id="campo-j-comum">
+          <legend class="juntos-comum__titulo"><span aria-hidden="true">🤝</span> Para os dois</legend>
+          <fieldset class="field" id="campo-j-tipo">
+            <legend>O que vocês querem ver?</legend>
+            <div class="segmented" role="radiogroup" aria-label="Tipo de conteúdo">
+              <label class="segmented__opt"><input type="radio" name="j-tipo" value="todos" checked><span>🎞️ Tanto faz</span></label>
+              <label class="segmented__opt"><input type="radio" name="j-tipo" value="filme"><span>🎬 Filme</span></label>
+              <label class="segmented__opt"><input type="radio" name="j-tipo" value="serie"><span>📺 Série</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="field" id="campo-j-tempo" aria-describedby="erro-j-tempo">
+            <legend>Quanto tempo vocês têm? <span class="req" aria-hidden="true">*</span></legend>
+            <div class="chips chips--compact" id="lista-j-tempos"><!-- preenchido pelo app.js --></div>
+            <p class="erro" id="erro-j-tempo" role="alert" hidden></p>
+          </fieldset>
+        </fieldset>
+
+        <div class="pessoas" id="pessoas"><!-- os dois blocos de pessoa são gerados pelo app.js --></div>
+
+        <div class="form-prefs__actions">
+          <button type="submit" class="btn btn--primary btn--lg" id="btn-juntos">
+            <span class="btn__icon" aria-hidden="true">💞</span> Encontrar para nós dois
+          </button>
+          <button type="reset" class="btn btn--text">Limpar escolhas</button>
+        </div>
+      </form>
+
+      <section class="resultados" id="resultados-juntos" aria-labelledby="titulo-resultados-juntos" hidden>
+        <div class="section-head">
+          <div>
+            <h2 id="titulo-resultados-juntos">3 sugestões para vocês dois</h2>
+            <p class="section-head__sub" id="resumo-juntos"></p>
+          </div>
+          <button type="button" class="btn btn--ghost" id="btn-outras-juntos">🔄 Outras sugestões</button>
+        </div>
+        <div class="grid-cards" id="lista-juntos" aria-live="polite" aria-busy="false"></div>
+      </section>
+    </section>
+
+    <!-- ================= EXPLORAR (BUSCA) ================= -->
+    <section class="view" id="view-explorar" aria-labelledby="titulo-explorar" hidden>
+      <div class="section-head section-head--page">
+        <div>
+          <h1 id="titulo-explorar">Explorar catálogo</h1>
+          <p class="section-head__sub">Busque por título, gênero ou ano. Pressione <kbd>/</kbd> para focar a busca.</p>
+        </div>
+      </div>
+
+      <form class="card toolbar" id="form-busca" role="search" onsubmit="return false">
+        <div class="toolbar__search">
+          <label for="busca" class="sr-only">Buscar filmes e séries</label>
+          <span class="toolbar__search-icon" aria-hidden="true">🔍</span>
+          <input type="search" id="busca" class="input" placeholder="Ex.: Interestelar, comédia, 2019…" autocomplete="off">
+        </div>
+        <div class="toolbar__filters">
+          <label class="sr-only" for="filtro-genero">Filtrar por gênero</label>
+          <select id="filtro-genero" class="select"><option value="">Todos os gêneros</option></select>
+          <label class="sr-only" for="filtro-tipo">Filtrar por tipo</label>
+          <select id="filtro-tipo" class="select">
+            <option value="">Filmes e séries</option>
+            <option value="filme">Só filmes</option>
+            <option value="serie">Só séries</option>
+          </select>
+          <label class="sr-only" for="ordem-busca">Ordenar</label>
+          <select id="ordem-busca" class="select">
+            <option value="nota">Mais bem avaliados</option>
+            <option value="titulo">Ordem alfabética</option>
+            <option value="recentes">Mais recentes</option>
+            <option value="curtos">Mais curtos</option>
+          </select>
+        </div>
+      </form>
+
+      <p class="contador" id="contador-busca" aria-live="polite"></p>
+      <div class="grid-cards grid-cards--small" id="lista-busca"></div>
+
+      <section class="online" id="secao-online" hidden aria-labelledby="titulo-online">
+        <h2 id="titulo-online">🌐 Resultados online <small>(TMDb)</small></h2>
+        <div class="grid-cards grid-cards--small" id="lista-online"></div>
+      </section>
+
+      <aside class="card api-cta" id="api-cta">
+        <div>
+          <h2>🔌 Conectar com a API do TMDb</h2>
+          <p>Com uma chave gratuita do TMDb, o CineMatch mostra pôsteres reais, sinopses atualizadas e busca em milhares de títulos online.</p>
+        </div>
+        <button type="button" class="btn btn--ghost" data-acao="abrir-api">Configurar API</button>
+      </aside>
+    </section>
+
+    <!-- ================= FAVORITOS ================= -->
+    <section class="view" id="view-favoritos" aria-labelledby="titulo-favoritos" hidden>
+      <div class="section-head section-head--page">
+        <div>
+          <h1 id="titulo-favoritos">Meus Favoritos</h1>
+          <p class="section-head__sub" id="sub-favoritos"></p>
+        </div>
+        <div class="section-head__actions">
+          <label class="sr-only" for="ordem-favoritos">Ordenar favoritos</label>
+          <select id="ordem-favoritos" class="select">
+            <option value="recentes">Adicionados recentemente</option>
+            <option value="minha-nota">Minha avaliação</option>
+            <option value="nota">Nota do público</option>
+            <option value="titulo">Ordem alfabética</option>
+          </select>
+          <button type="button" class="btn btn--ghost" id="btn-exportar" title="Baixar backup em JSON">⬇️ Backup</button>
+          <label class="btn btn--ghost" title="Restaurar backup em JSON">⬆️ Restaurar
+            <input type="file" id="input-importar" accept="application/json,.json" class="sr-only">
+          </label>
+        </div>
+      </div>
+      <ul class="lista-favoritos" id="lista-favoritos"></ul>
+    </section>
+
+    <!-- ================= HISTÓRICO ================= -->
+    <section class="view" id="view-historico" aria-labelledby="titulo-historico" hidden>
+      <div class="section-head section-head--page">
+        <div>
+          <h1 id="titulo-historico">Histórico de recomendações</h1>
+          <p class="section-head__sub">As últimas 30 recomendações ficam salvas neste navegador.</p>
+        </div>
+        <button type="button" class="btn btn--danger-ghost" id="btn-limpar-historico">🗑️ Limpar histórico</button>
+      </div>
+      <ol class="timeline" id="lista-historico"></ol>
+    </section>
+
+    <!-- ================= ESTATÍSTICAS ================= -->
+    <section class="view" id="view-estatisticas" aria-labelledby="titulo-estatisticas" hidden>
+      <div class="section-head section-head--page">
+        <div>
+          <h1 id="titulo-estatisticas">Suas estatísticas</h1>
+          <p class="section-head__sub">Um raio-x do seu gosto, calculado a partir dos favoritos e do histórico.</p>
+        </div>
+      </div>
+      <div id="conteudo-estatisticas"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>CineMatch · Projeto de TI (Vibe Coding) · HTML5, CSS3 e JavaScript puro · Dados salvos só no seu navegador (LocalStorage)</p>
+    <p class="footer__small">Notas aproximadas do público. Dados online fornecidos pela API do TMDb quando configurada.</p>
+  </footer>
+
+  <!-- ================= DIÁLOGOS (MODAIS) ================= -->
+  <dialog class="modal modal--detalhes" id="dlg-detalhes" aria-labelledby="det-titulo">
+    <div class="modal__body" id="det-conteudo"></div>
+  </dialog>
+
+  <dialog class="modal" id="dlg-ajuda" aria-labelledby="ajuda-titulo">
+    <div class="modal__body">
+      <button type="button" class="modal__close" data-fechar aria-label="Fechar">✕</button>
+      <h2 id="ajuda-titulo">Como usar o CineMatch</h2>
+      <ol class="ajuda-passos">
+        <li><strong>Escolha suas preferências:</strong> tipo, gêneros, humor, tempo e faixa etária.</li>
+        <li><strong>Clique em Recomendar:</strong> você recebe 3 sugestões com o motivo de cada uma.</li>
+        <li><strong>Vai assistir com alguém?</strong> Use <em>👥 Assistir junto</em>: cada um escolhe o que gosta e o app procura o que agrada os dois.</li>
+        <li><strong>Não curtiu uma?</strong> Use <em>Trocar</em> no card ou <em>Outras sugestões</em>.</li>
+        <li><strong>Salve com ❤️</strong> e avalie seus favoritos com estrelas.</li>
+        <li>Tudo fica salvo no navegador: favoritos, histórico, tema e preferências.</li>
+      </ol>
+      <h3>Atalhos de teclado</h3>
+      <dl class="atalhos">
+        <div><dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Ir para Recomendar, Explorar, Favoritos, Histórico e Estatísticas</dd></div>
+        <div><dt><kbd>J</kbd></dt><dd>Abrir o modo Assistir junto</dd></div>
+        <div><dt><kbd>T</kbd></dt><dd>Alternar tema claro/escuro</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>Buscar no catálogo</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Abrir esta ajuda</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Fechar janelas</dd></div>
+      </dl>
+      <label class="switch-atalhos"><input type="checkbox" id="cfg-atalhos" aria-describedby="atalhos-dica"> Usar atalhos de uma tecla</label>
+      <p class="modal__sub" id="atalhos-dica">Desligue se você usa leitor de tela ou comandos de voz e as teclas sozinhas atrapalham. As notificações ficam paradas enquanto o mouse ou o foco do teclado estiver sobre elas.</p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" data-acao="abrir-api">🔌 Configurar API TMDb</button>
+        <button type="button" class="btn btn--primary" data-fechar>Entendi</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="dlg-perfis" aria-labelledby="perfis-titulo">
+    <div class="modal__body">
+      <button type="button" class="modal__close" data-fechar aria-label="Fechar">✕</button>
+      <h2 id="perfis-titulo">Quem está assistindo?</h2>
+      <p class="modal__sub">Cada perfil tem seus próprios favoritos, histórico e preferências.</p>
+      <ul class="perfis" id="lista-perfis"></ul>
+      <form class="novo-perfil" id="form-perfil">
+        <h3>Novo perfil</h3>
+        <label for="perfil-nome-input" class="field__label">Nome</label>
+        <input type="text" id="perfil-nome-input" class="input" maxlength="20" placeholder="Ex.: Mãe, Pedro, Casal…" required>
+        <fieldset class="avatares">
+          <legend class="field__label">Avatar</legend>
+          <div id="lista-avatares" class="avatares__grid"></div>
+        </fieldset>
+        <p class="erro" id="erro-perfil" role="alert" hidden></p>
+        <button type="submit" class="btn btn--primary">Criar perfil</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="dlg-api" aria-labelledby="api-titulo">
+    <form class="modal__body" id="form-api" method="dialog">
+      <button type="button" class="modal__close" data-fechar aria-label="Fechar">✕</button>
+      <h2 id="api-titulo">🔌 API do TMDb (opcional)</h2>
+      <p class="modal__sub">Crie uma conta grátis em <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a>, copie a <strong>API Key (v3)</strong> ou o <strong>Token de leitura (v4)</strong> e cole abaixo. A chave fica salva só neste navegador.</p>
+      <label for="api-key" class="field__label">Chave da API</label>
+      <input type="text" id="api-key" class="input" autocomplete="off" spellcheck="false" placeholder="Cole sua chave aqui">
+      <p class="api-status" id="api-status" aria-live="polite"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--text" id="btn-api-remover">Remover chave</button>
+        <button type="button" class="btn btn--primary" id="btn-api-salvar">Testar e salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal modal--confirmar" id="dlg-confirmar" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto">
+    <div class="modal__body">
+      <h2 id="confirmar-titulo">Tem certeza?</h2>
+      <p id="confirmar-texto"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="confirmar-nao">Cancelar</button>
+        <button type="button" class="btn btn--danger" id="confirmar-sim">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Notificações (feedback ao usuário) -->
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+  <!-- Scripts: dados → persistência → aplicação -->
+  <script src="js/movies.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
